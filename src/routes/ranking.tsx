@@ -86,11 +86,9 @@ function RankingPage() {
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1)
-    return <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 text-background"><Medal className="h-5 w-5" /></div>;
-  if (rank === 2)
-    return <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-slate-300 to-slate-500 text-background"><Medal className="h-5 w-5" /></div>;
-  if (rank === 3)
-    return <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-700 text-background"><Medal className="h-5 w-5" /></div>;
+  if (rank <= 3) {
+    const color = rank === 1 ? "bg-warning text-warning-foreground glow-accent" : rank === 2 ? "bg-muted-foreground text-background" : "bg-accent text-accent-foreground";
+    return <div className={`flex h-10 w-10 items-center justify-center rounded-full ${color}`}><Medal className="h-5 w-5" /></div>;
+  }
   return <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted font-display font-bold text-muted-foreground">{rank}</div>;
 }
