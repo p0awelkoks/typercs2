@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { FileUpload } from "@/components/FileUpload";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Mój profil — CS2 Typer" }] }),
