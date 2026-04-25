@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { FileUpload } from "@/components/FileUpload";
 
 export function OnboardingDialog() {
   const { user, profile, refreshProfile } = useAuth();
