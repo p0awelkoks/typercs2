@@ -89,7 +89,7 @@ function ProfilePage() {
           </Avatar>
           <div className="flex-1 text-center sm:text-left">
             <h1 className="font-display text-3xl font-bold">{profile.username ?? "Bez nicku"}</h1>
-            <p className="text-sm text-muted-foreground">{profile.email}</p>
+            <p className="text-sm text-muted-foreground">{user?.email}</p>
             <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-muted px-4 py-2">
               <Trophy className="h-5 w-5 text-accent" />
               <span className="font-display text-2xl font-bold">{profile.points}</span>
