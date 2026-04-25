@@ -242,6 +242,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      reset_all_points: { Args: never; Returns: undefined }
+      reset_user_points: { Args: { _user_id: string }; Returns: undefined }
       settle_match: { Args: { _match_id: string }; Returns: undefined }
     }
     Enums: {

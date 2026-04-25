@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { FileUpload } from "@/components/FileUpload";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Mój profil — CS2 Typer" }] }),
@@ -107,8 +108,14 @@ function ProfilePage() {
               <Input id="u" value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="a">URL avatara</Label>
-              <Input id="a" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} />
+              <Label>Avatar</Label>
+              <FileUpload
+                bucket="avatars"
+                folder={user?.id}
+                value={avatarUrl}
+                onChange={setAvatarUrl}
+                label="Wgraj zdjęcie"
+              />
             </div>
             <Button onClick={saveProfile} disabled={saving}>{saving ? "Zapisuję..." : "Zapisz"}</Button>
           </div>

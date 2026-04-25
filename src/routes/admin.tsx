@@ -13,10 +13,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Shield, PlusCircle, Star, Trash2 } from "lucide-react";
+import { Shield, PlusCircle, Star, Trash2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
+import { FileUpload } from "@/components/FileUpload";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin — CS2 Typer" }] }),
@@ -57,12 +62,40 @@ function AdminPage() {
 
   if (!isAdmin) return null;
 
+  const resetAll = async () => {
+    const { error } = await supabase.rpc("reset_all_points");
+    if (error) toast.error(error.message);
+    else { toast.success("Punkty zresetowane"); load(); }
+  };
+
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-8 flex items-center gap-3 font-display text-4xl font-bold">
-        <Shield className="h-9 w-9 text-primary" />
-        Panel <span className="gradient-text">admina</span>
-      </h1>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="flex items-center gap-3 font-display text-4xl font-bold">
+          <Shield className="h-9 w-9 text-primary" />
+          Panel <span className="gradient-text">admina</span>
+        </h1>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm">
+              <RotateCcw className="mr-2 h-4 w-4" /> Resetuj wszystkie punkty
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Zresetować wszystkie punkty?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Wyzeruje punkty wszystkich graczy i historię naliczeń. Operacja nieodwracalna.
+                Możesz potem ponownie rozliczyć poszczególne mecze.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Anuluj</AlertDialogCancel>
+              <AlertDialogAction onClick={resetAll}>Resetuj</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
 
       <Tabs defaultValue="add">
         <TabsList>
@@ -119,8 +152,8 @@ function AddMatchForm({ onAdded }: { onAdded: () => void }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div><Label>Drużyna A *</Label><Input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="np. NaVi" /></div>
         <div><Label>Drużyna B *</Label><Input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="np. FaZe" /></div>
-        <div><Label>Logo A (URL)</Label><Input value={logoA} onChange={(e) => setLogoA(e.target.value)} /></div>
-        <div><Label>Logo B (URL)</Label><Input value={logoB} onChange={(e) => setLogoB(e.target.value)} /></div>
+        <div><Label>Logo A</Label><FileUpload bucket="team-logos" value={logoA} onChange={setLogoA} label="Wgraj logo" /></div>
+        <div><Label>Logo B</Label><FileUpload bucket="team-logos" value={logoB} onChange={setLogoB} label="Wgraj logo" /></div>
         <div><Label>Turniej</Label><Input value={tournament} onChange={(e) => setTournament(e.target.value)} placeholder="IEM Katowice 2025" /></div>
         <div><Label>Data i godzina *</Label><Input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       </div>
