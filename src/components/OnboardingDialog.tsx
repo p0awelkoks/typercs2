@@ -80,12 +80,13 @@ export function OnboardingDialog() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="avatar">URL avatara (opcjonalne)</Label>
-            <Input
-              id="avatar"
+            <Label>Avatar (opcjonalne)</Label>
+            <FileUpload
+              bucket="avatars"
+              folder={user.id}
               value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://..."
+              onChange={setAvatarUrl}
+              label="Wgraj zdjęcie"
             />
           </div>
           <Button onClick={save} disabled={saving} className="w-full" size="lg">
