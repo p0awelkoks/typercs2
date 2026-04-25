@@ -108,8 +108,14 @@ function ProfilePage() {
               <Input id="u" value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="a">URL avatara</Label>
-              <Input id="a" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} />
+              <Label>Avatar</Label>
+              <FileUpload
+                bucket="avatars"
+                folder={user?.id}
+                value={avatarUrl}
+                onChange={setAvatarUrl}
+                label="Wgraj zdjęcie"
+              />
             </div>
             <Button onClick={saveProfile} disabled={saving}>{saving ? "Zapisuję..." : "Zapisz"}</Button>
           </div>
