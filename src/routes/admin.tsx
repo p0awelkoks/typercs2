@@ -152,8 +152,8 @@ function AddMatchForm({ onAdded }: { onAdded: () => void }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div><Label>Drużyna A *</Label><Input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="np. NaVi" /></div>
         <div><Label>Drużyna B *</Label><Input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="np. FaZe" /></div>
-        <div><Label>Logo A (URL)</Label><Input value={logoA} onChange={(e) => setLogoA(e.target.value)} /></div>
-        <div><Label>Logo B (URL)</Label><Input value={logoB} onChange={(e) => setLogoB(e.target.value)} /></div>
+        <div><Label>Logo A</Label><FileUpload bucket="team-logos" value={logoA} onChange={setLogoA} label="Wgraj logo" /></div>
+        <div><Label>Logo B</Label><FileUpload bucket="team-logos" value={logoB} onChange={setLogoB} label="Wgraj logo" /></div>
         <div><Label>Turniej</Label><Input value={tournament} onChange={(e) => setTournament(e.target.value)} placeholder="IEM Katowice 2025" /></div>
         <div><Label>Data i godzina *</Label><Input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       </div>
