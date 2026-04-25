@@ -19,7 +19,7 @@ export function SiteHeader() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const initials = (profile?.username || profile?.email || "?").slice(0, 2).toUpperCase();
+  const initials = (profile?.username || user?.email || "?").slice(0, 2).toUpperCase();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
