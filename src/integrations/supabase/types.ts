@@ -94,6 +94,13 @@ export type Database = {
             referencedRelation: "bonus_questions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bonus_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "bonus_questions_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       bonus_questions: {
@@ -229,7 +236,35 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      bonus_questions_public: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          match_id: string | null
+          question: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          match_id?: string | null
+          question?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          match_id?: string | null
+          question?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_questions_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {
