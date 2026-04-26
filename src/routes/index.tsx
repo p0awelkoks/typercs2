@@ -45,12 +45,13 @@ function HomePage() {
       .order("start_time", { ascending: true });
     setMatches((m as Match[]) ?? []);
 
-    const { data: q } = await supabase
-      .from("bonus_questions")
-      .select("id, question, correct_answer, match_id");
+    // Widok bez correct_answer — graczom nie wolno znać odpowiedzi przed zakończeniem meczu
+    const { data: q } = await (supabase as any)
+      .from("bonus_questions_public")
+      .select("id, question, match_id");
     const map: Record<string, { id: string; question: string; correct_answer: string | null }[]> = {};
     q?.forEach((x: any) => {
-      (map[x.match_id] ??= []).push({ id: x.id, question: x.question, correct_answer: x.correct_answer });
+      (map[x.match_id] ??= []).push({ id: x.id, question: x.question, correct_answer: null });
     });
     setBonus(map);
     setLoading(false);
