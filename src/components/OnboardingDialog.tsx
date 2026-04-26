@@ -47,7 +47,12 @@ export function OnboardingDialog() {
       .eq("id", user.id);
     setSaving(false);
     if (error) {
-      toast.error(error.message.includes("duplicate") ? "Ten nick jest zajęty" : error.message);
+      const msg = error.message.toLowerCase();
+      if (msg.includes("duplicate") || msg.includes("unique")) {
+        toast.error("Ten nick jest już zajęty");
+      } else {
+        toast.error(error.message);
+      }
       return;
     }
     toast.success("Profil ustawiony!");
