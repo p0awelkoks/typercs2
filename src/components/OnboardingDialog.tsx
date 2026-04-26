@@ -32,8 +32,12 @@ export function OnboardingDialog() {
   const save = async () => {
     if (!user) return;
     const trimmed = username.trim();
-    if (trimmed.length < 3) {
-      toast.error("Nick musi mieć min. 3 znaki");
+    if (trimmed.length < 3 || trimmed.length > 24) {
+      toast.error("Nick musi mieć 3–24 znaki");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+      toast.error("Nick może zawierać tylko litery, cyfry, _ i -");
       return;
     }
     setSaving(true);
