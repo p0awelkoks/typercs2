@@ -25,9 +25,6 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent glow-primary">
-            <Crosshair className="h-5 w-5 text-primary-foreground" />
-          </div>
           <span className="font-display text-xl font-bold tracking-wide">
             CS2<span className="gradient-text">TYPER</span>
           </span>
