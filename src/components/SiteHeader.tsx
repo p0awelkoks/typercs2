@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Crosshair, Trophy, User, Shield, LogOut } from "lucide-react";
+import { Trophy, User, Shield, LogOut } from "lucide-react";
 
 export function SiteHeader() {
   const { user, profile, isAdmin, signOut } = useAuth();
