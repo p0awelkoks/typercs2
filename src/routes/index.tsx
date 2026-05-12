@@ -68,9 +68,6 @@ function HomePage() {
         <h1 className="font-display text-4xl font-bold sm:text-5xl">
           Typuj mecze <span className="gradient-text">CS2</span>
         </h1>
-        <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-          +1 pkt za zwycięzcę · +3 pkt za dokładny wynik · +2 pkt za pytanie bonusowe
-        </p>
       </section>
 
       <Tabs defaultValue="upcoming" className="w-full">
