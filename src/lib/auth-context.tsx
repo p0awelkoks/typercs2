@@ -6,7 +6,6 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-
 export type Profile = {
   id: string;
   username: string | null;
@@ -21,7 +20,7 @@ type AuthCtx = {
   profile: Profile | null;
   isAdmin: boolean;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithDiscord: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -35,7 +34,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Ładuje profil + role (deferred, by uniknąć deadlocku w onAuthStateChange)
   const loadUserData = async (uid: string) => {
     const [{ data: prof }, { data: roles }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
@@ -46,12 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // 1) Listener PIERWSZY (kolejność krytyczna dla Supabase)
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        // setTimeout — by nie blokować callbacka
         setTimeout(() => loadUserData(sess.user.id), 0);
       } else {
         setProfile(null);
@@ -59,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // 2) Następnie sprawdzamy istniejącą sesję
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
@@ -70,14 +65,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
-  await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/`,
-    },
-  });
-};
+  const signInWithDiscord = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+  };
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -89,7 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, profile, isAdmin, loading, signInWithGoogle, signOut, refreshProfile }}
+      value={{
+        user,
+        session,
+        profile,
+        isAdmin,
+        loading,
+        signInWithDiscord,
+        signOut,
+        refreshProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>
