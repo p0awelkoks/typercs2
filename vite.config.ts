@@ -5,6 +5,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 export default defineConfig({
+  base: "/NAZWA-REPO/", // 🔥 DODAJ TO
   plugins: [
     tanstackRouter({
       target: "react",
