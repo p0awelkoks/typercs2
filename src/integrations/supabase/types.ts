@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_discord_ids: {
+        Row: {
+          created_at: string
+          discord_id: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          discord_id: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          discord_id?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       bets: {
         Row: {
           created_at: string
