@@ -21,21 +21,31 @@ export const Route = createFileRoute("/ranking")({
 type Row = { id: string; username: string | null; avatar_url: string | null; points: number };
 
 function RankingPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Czekamy aż AuthContext skończy sync profilu, żeby uniknąć race condition
+    if (authLoading) return;
+
+    let cancelled = false;
     (async () => {
+      setLoading(true);
       const { data } = await supabase
         .from("profiles")
         .select("id, username, avatar_url, points")
         .order("points", { ascending: false })
         .limit(100);
-      setRows((data as Row[]) ?? []);
-      setLoading(false);
+      if (!cancelled) {
+        setRows((data as Row[]) ?? []);
+        setLoading(false);
+      }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id]);
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
