@@ -53,20 +53,21 @@ function isGeneratedFallbackUsername(username: string | null | undefined, userId
 }
 
 function getMetadataUsername(user: User) {
+  const meta: any = user.user_metadata ?? {};
   return sanitizeUsername(
-    user.user_metadata?.preferred_username ??
-      user.user_metadata?.user_name ??
-      user.user_metadata?.name ??
-      user.user_metadata?.full_name
+    meta.preferred_username ??
+      meta.global_name ??
+      meta.name ??
+      meta.full_name ??
+      meta.user_name ??
+      meta.nickname ??
+      meta.custom_claims?.global_name
   );
 }
 
 function getMetadataAvatar(user: User) {
-  const value =
-    user.user_metadata?.avatar_url ??
-    user.user_metadata?.picture ??
-    user.user_metadata?.avatar;
-
+  const meta: any = user.user_metadata ?? {};
+  const value = meta.avatar_url ?? meta.picture ?? meta.avatar;
   return typeof value === "string" && value.trim() ? value : null;
 }
 
