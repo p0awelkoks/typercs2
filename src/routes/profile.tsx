@@ -92,7 +92,12 @@ function ProfilePage() {
       .eq("id", user.id);
     setSaving(false);
     if (error) toast.error(error.message);
-    else { toast.success("Zapisano"); await refreshProfile(); setEditing(false); }
+    else {
+      toast.success("Zapisano");
+      setProfile((p) => (p ? { ...p, username: username.trim(), avatar_url: avatarUrl || null } : p));
+      await refreshProfile();
+      setEditing(false);
+    }
   };
 
   if (!profile) return <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">Ładowanie...</div>;
