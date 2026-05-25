@@ -32,6 +32,65 @@ type AuthCtx = {
 
 const AuthContext = createContext<AuthCtx | undefined>(undefined);
 
+const USERNAME_MIN_LENGTH = 3;
+const USERNAME_MAX_LENGTH = 24;
+
+function buildFallbackUsername(userId: string) {
+  return `user_${userId.replace(/-/g, "").slice(0, 6)}`;
+}
+
+function sanitizeUsername(value: unknown) {
+  if (typeof value !== "string") return null;
+
+  const sanitized = value.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, USERNAME_MAX_LENGTH);
+  return sanitized.length >= USERNAME_MIN_LENGTH ? sanitized : null;
+}
+
+function isGeneratedFallbackUsername(username: string | null | undefined, userId: string) {
+  if (!username) return false;
+
+  return username === buildFallbackUsername(userId) || /^user_[a-zA-Z0-9]{6,8}$/.test(username);
+}
+
+function getMetadataUsername(user: User) {
+  return sanitizeUsername(
+    user.user_metadata?.preferred_username ??
+      user.user_metadata?.user_name ??
+      user.user_metadata?.name ??
+      user.user_metadata?.full_name
+  );
+}
+
+function getMetadataAvatar(user: User) {
+  const value =
+    user.user_metadata?.avatar_url ??
+    user.user_metadata?.picture ??
+    user.user_metadata?.avatar;
+
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+async function getAvailableUsername(baseUsername: string, userId: string) {
+  let suffix = 0;
+
+  while (suffix <= 9999) {
+    const suffixText = suffix === 0 ? "" : String(suffix);
+    const candidate = `${baseUsername.slice(0, USERNAME_MAX_LENGTH - suffixText.length)}${suffixText}`;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", candidate)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data || data.id === userId) return candidate;
+
+    suffix += 1;
+  }
+
+  return `${buildFallbackUsername(userId)}${Date.now().toString().slice(-2)}`.slice(0, USERNAME_MAX_LENGTH);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -39,49 +98,87 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const syncProfileFromMetadata = async (authUser: User) => {
+    const { data: existingProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+
+    const metadataUsername = getMetadataUsername(authUser);
+    const fallbackUsername = buildFallbackUsername(authUser.id);
+    const desiredUsernameBase = metadataUsername ?? fallbackUsername;
+    const currentUsername = existingProfile?.username?.trim() || null;
+    const keepExistingUsername = Boolean(currentUsername) && !isGeneratedFallbackUsername(currentUsername, authUser.id);
+
+    const username = keepExistingUsername
+      ? currentUsername
+      : await getAvailableUsername(desiredUsernameBase, authUser.id);
+
+    const avatarUrl = existingProfile?.avatar_url || getMetadataAvatar(authUser);
+
+    const { error: upsertError } = await supabase.from("profiles").upsert(
+      {
+        id: authUser.id,
+        username,
+        avatar_url: avatarUrl,
+        onboarded: Boolean(username),
+      },
+      { onConflict: "id" }
+    );
+
+    if (upsertError) throw upsertError;
+  };
+
   const loadUserData = async (uid: string) => {
-    const [{ data: prof }, { data: adminList }, { data: userData }] =
-      await Promise.all([
-        supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
-        supabase.from("admin_discord_ids").select("discord_id"),
-        supabase.auth.getUser(),
-      ]);
+    const [{ data: prof, error: profileError }, { data: adminRole, error: roleError }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle(),
+    ]);
+
+    if (profileError) throw profileError;
+    if (roleError) throw roleError;
 
     setProfile(prof as Profile | null);
+    setIsAdmin(Boolean(adminRole));
+  };
 
-    const discordId =
-      userData?.user?.user_metadata?.provider_id ||
-      userData?.user?.user_metadata?.sub;
+  const hydrateUserState = async (sess: Session | null) => {
+    setSession(sess);
+    setUser(sess?.user ?? null);
 
-    setIsAdmin(
-      adminList?.some((a) => a.discord_id === discordId) ?? false
-    );
+    if (!sess?.user) {
+      setProfile(null);
+      setIsAdmin(false);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await syncProfileFromMetadata(sess.user);
+      await loadUserData(sess.user.id);
+    } catch (error) {
+      console.error("Failed to sync auth profile", error);
+      setProfile(null);
+      setIsAdmin(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, sess) => {
-        setSession(sess);
-        setUser(sess?.user ?? null);
-
-        if (sess?.user) {
-          setTimeout(() => loadUserData(sess.user.id), 0);
-        } else {
-          setProfile(null);
-          setIsAdmin(false);
-        }
-      }
-    );
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setTimeout(() => {
+        void hydrateUserState(sess);
+      }, 0);
+    });
 
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-
-      if (sess?.user) {
-        loadUserData(sess.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
+      void hydrateUserState(sess);
     });
 
     return () => sub.subscription.unsubscribe();
