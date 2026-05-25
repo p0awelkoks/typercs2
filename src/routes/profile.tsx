@@ -1,43 +1,3 @@
-/**
- * /profile — profil zalogowanego usera: avatar, punkty, historia typów.
- */
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trophy, History, Edit } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { format } from "date-fns";
-import { pl } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { FileUpload } from "@/components/FileUpload";
-
-export const Route = createFileRoute("/profile")({
-  head: () => ({ meta: [{ title: "Mój profil — CS2 Typer" }] }),
-  component: ProfilePage,
-});
-
-type BetRow = {
-  id: string;
-  predicted_winner: string;
-  predicted_score_a: number | null;
-  predicted_score_b: number | null;
-  points_awarded: number;
-  matches: {
-    team_a: string;
-    team_b: string;
-    start_time: string;
-    status: string;
-    result_a: number | null;
-    result_b: number | null;
-    winner: string | null;
-  };
-};
-
 function ProfilePage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -48,25 +8,42 @@ function ProfilePage() {
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // redirect
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [user, loading, navigate]);
 
-  // FETCH PROFIL (single source of truth)
+  // FETCH PROFILE (stable + no freeze)
   useEffect(() => {
     if (!user) return;
 
+    let active = true;
+    setProfileLoading(true);
+
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
 
-      setProfile(data ?? null);
+      if (!active) return;
+
+      if (error) {
+        console.error(error);
+        setProfile(null);
+      } else {
+        setProfile(data ?? null);
+      }
+
+      setProfileLoading(false);
     })();
+
+    return () => {
+      active = false;
+    };
   }, [user?.id]);
 
   // FETCH BETS
@@ -76,8 +53,7 @@ function ProfilePage() {
     (async () => {
       const { data } = await supabase
         .from("bets")
-        .select(
-          `
+        .select(`
           id,
           predicted_winner,
           predicted_score_a,
@@ -92,8 +68,7 @@ function ProfilePage() {
             result_b,
             winner
           )
-        `
-        )
+        `)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -101,7 +76,7 @@ function ProfilePage() {
     })();
   }, [user?.id]);
 
-  // sync form state
+  // sync form
   useEffect(() => {
     if (!profile) return;
     setUsername(profile.username ?? "");
@@ -143,25 +118,33 @@ function ProfilePage() {
     setEditing(false);
   };
 
-  // 🔥 NIE BLOKUJ UI NA PROFILE
+  // 🔥 NEVER BLOCK UI ON PROFILE FETCH
   if (!user) return null;
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
+
       <div className="gaming-card mb-8 p-6">
         <div className="flex flex-col items-center gap-4 sm:flex-row">
+
           <Avatar className="h-24 w-24 ring-2 ring-primary glow-primary">
             <AvatarImage src={profile?.avatar_url ?? undefined} />
             <AvatarFallback className="text-2xl">
-              {(profile?.username ?? "??").slice(0, 2).toUpperCase()}
+              {(profile?.username ?? "user").slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
 
           <div className="flex-1 text-center sm:text-left">
+
             <h1 className="font-display text-3xl font-bold">
-              {profile?.username ?? "Ładowanie..."}
+              {profileLoading
+                ? "Ładowanie..."
+                : profile?.username ?? "user_" + user.id.slice(0, 6)}
             </h1>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
+
+            <p className="text-sm text-muted-foreground">
+              {user.email}
+            </p>
 
             <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-muted px-4 py-2">
               <Trophy className="h-5 w-5 text-accent" />
@@ -170,16 +153,19 @@ function ProfilePage() {
               </span>
               <span className="text-sm text-muted-foreground">pkt</span>
             </div>
+
           </div>
 
           <Button variant="outline" onClick={() => setEditing(!editing)}>
             <Edit className="mr-2 h-4 w-4" />
             {editing ? "Anuluj" : "Edytuj"}
           </Button>
+
         </div>
 
         {editing && (
           <div className="mt-6 space-y-3 border-t border-border pt-6">
+
             <div>
               <Label>Nick</Label>
               <Input
@@ -202,6 +188,7 @@ function ProfilePage() {
             <Button onClick={saveProfile} disabled={saving}>
               {saving ? "Zapisuję..." : "Zapisz"}
             </Button>
+
           </div>
         )}
       </div>
@@ -232,24 +219,10 @@ function ProfilePage() {
                   <p className="font-display font-semibold">
                     {m.team_a} vs {m.team_b}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(m.start_time), "d MMM yyyy, HH:mm", {
-                      locale: pl,
-                    })}
-                  </p>
-                </div>
-
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Typ: </span>
-                  <span className="font-semibold">
-                    {b.predicted_winner === "A" ? m.team_a : m.team_b}
-                  </span>
                 </div>
 
                 {finished ? (
-                  <Badge
-                    variant={correctWinner ? "default" : "secondary"}
-                  >
+                  <Badge variant={correctWinner ? "default" : "secondary"}>
                     +{b.points_awarded} pkt
                   </Badge>
                 ) : (
@@ -260,6 +233,7 @@ function ProfilePage() {
           })}
         </div>
       )}
+
     </div>
   );
-}
+      }
