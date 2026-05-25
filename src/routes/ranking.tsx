@@ -79,7 +79,7 @@ function RankingPage() {
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display font-semibold">
-                    {r.username ?? "Anonim"} {isMe && <span className="text-xs text-primary">(Ty)</span>}
+                    {r.username?.trim() || `user_${r.id.slice(0, 6)}`} {isMe && <span className="text-xs text-primary">(Ty)</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
