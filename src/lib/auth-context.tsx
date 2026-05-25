@@ -100,6 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const syncProfileFromMetadata = async (authUser: User) => {
+    console.log("[auth] user_metadata", authUser.user_metadata);
+    console.log("[auth] app_metadata", authUser.app_metadata);
+
     const { data: existingProfile, error: profileError } = await supabase
       .from("profiles")
       .select("id, username, avatar_url")
@@ -109,16 +112,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (profileError) throw profileError;
 
     const metadataUsername = getMetadataUsername(authUser);
+    const metadataAvatar = getMetadataAvatar(authUser);
     const fallbackUsername = buildFallbackUsername(authUser.id);
-    const desiredUsernameBase = metadataUsername ?? fallbackUsername;
     const currentUsername = existingProfile?.username?.trim() || null;
-    const keepExistingUsername = Boolean(currentUsername) && !isGeneratedFallbackUsername(currentUsername, authUser.id);
+    const keepExistingUsername =
+      Boolean(currentUsername) && !isGeneratedFallbackUsername(currentUsername, authUser.id);
 
     const username = keepExistingUsername
-      ? currentUsername
-      : await getAvailableUsername(desiredUsernameBase, authUser.id);
+      ? currentUsername!
+      : await getAvailableUsername(metadataUsername ?? fallbackUsername, authUser.id);
 
-    const avatarUrl = existingProfile?.avatar_url || getMetadataAvatar(authUser);
+    // Always refresh avatar from Discord if available, else keep existing
+    const avatarUrl = metadataAvatar ?? existingProfile?.avatar_url ?? null;
+
+    console.log("[auth] sync profile", { username, avatarUrl, existed: Boolean(existingProfile) });
 
     const { error: upsertError } = await supabase.from("profiles").upsert(
       {
@@ -130,7 +137,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       { onConflict: "id" }
     );
 
-    if (upsertError) throw upsertError;
+    if (upsertError) {
+      console.error("[auth] profile upsert error", upsertError);
+      throw upsertError;
+    }
   };
 
   const loadUserData = async (uid: string) => {
