@@ -1,6 +1,3 @@
-/**
- * AuthContext — globalny stan autoryzacji.
- */
 import {
   createContext,
   useContext,
@@ -32,64 +29,33 @@ type AuthCtx = {
 
 const AuthContext = createContext<AuthCtx | undefined>(undefined);
 
-const USERNAME_MIN_LENGTH = 3;
-const USERNAME_MAX_LENGTH = 24;
-
-function buildFallbackUsername(userId: string) {
-  return `user_${userId.replace(/-/g, "").slice(0, 6)}`;
+function fallbackUsername(id: string) {
+  return `user_${id.slice(0, 6)}`;
 }
 
-function sanitizeUsername(value: unknown) {
+function sanitize(value: any) {
   if (typeof value !== "string") return null;
-
-  const sanitized = value.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, USERNAME_MAX_LENGTH);
-  return sanitized.length >= USERNAME_MIN_LENGTH ? sanitized : null;
+  const v = value.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+  return v.length >= 3 ? v.slice(0, 24) : null;
 }
 
-function isGeneratedFallbackUsername(username: string | null | undefined, userId: string) {
-  if (!username) return false;
-
-  return username === buildFallbackUsername(userId) || /^user_[a-zA-Z0-9]{6,8}$/.test(username);
-}
-
-function getMetadataUsername(user: User) {
-  const meta: any = user.user_metadata ?? {};
-  return sanitizeUsername(
-    meta.preferred_username ??
-      meta.global_name ??
-      meta.name ??
-      meta.full_name ??
-      meta.user_name ??
-      meta.nickname ??
-      meta.custom_claims?.global_name
+function getUsername(user: User) {
+  const m: any = user.user_metadata ?? {};
+  return (
+    sanitize(
+      m.preferred_username ||
+        m.global_name ||
+        m.name ||
+        m.full_name ||
+        m.user_name ||
+        m.nickname
+    ) || fallbackUsername(user.id)
   );
 }
 
-function getMetadataAvatar(user: User) {
-  const meta: any = user.user_metadata ?? {};
-  const value = meta.avatar_url ?? meta.picture ?? meta.avatar;
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-async function getAvailableUsername(baseUsername: string, userId: string) {
-  let suffix = 0;
-
-  while (suffix <= 9999) {
-    const suffixText = suffix === 0 ? "" : String(suffix);
-    const candidate = `${baseUsername.slice(0, USERNAME_MAX_LENGTH - suffixText.length)}${suffixText}`;
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", candidate)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data || data.id === userId) return candidate;
-
-    suffix += 1;
-  }
-
-  return `${buildFallbackUsername(userId)}${Date.now().toString().slice(-2)}`.slice(0, USERNAME_MAX_LENGTH);
+function getAvatar(user: User) {
+  const m: any = user.user_metadata ?? {};
+  return m.avatar_url || m.picture || m.avatar || null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -99,68 +65,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const syncProfileFromMetadata = async (authUser: User) => {
-    console.log("[auth] user_metadata", authUser.user_metadata);
-    console.log("[auth] app_metadata", authUser.app_metadata);
+  const syncProfile = async (u: User) => {
+    const username = getUsername(u);
+    const avatar_url = getAvatar(u);
 
-    const { data: existingProfile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id, username, avatar_url")
-      .eq("id", authUser.id)
-      .maybeSingle();
-
-    if (profileError) throw profileError;
-
-    const metadataUsername = getMetadataUsername(authUser);
-    const metadataAvatar = getMetadataAvatar(authUser);
-    const fallbackUsername = buildFallbackUsername(authUser.id);
-    const currentUsername = existingProfile?.username?.trim() || null;
-    const keepExistingUsername =
-      Boolean(currentUsername) && !isGeneratedFallbackUsername(currentUsername, authUser.id);
-
-    const username = keepExistingUsername
-      ? currentUsername!
-      : await getAvailableUsername(metadataUsername ?? fallbackUsername, authUser.id);
-
-    // Always refresh avatar from Discord if available, else keep existing
-    const avatarUrl = metadataAvatar ?? existingProfile?.avatar_url ?? null;
-
-    console.log("[auth] sync profile", { username, avatarUrl, existed: Boolean(existingProfile) });
-
-    const { error: upsertError } = await supabase.from("profiles").upsert(
+    await supabase.from("profiles").upsert(
       {
-        id: authUser.id,
+        id: u.id,
         username,
-        avatar_url: avatarUrl,
-        onboarded: Boolean(username),
+        avatar_url,
+        onboarded: true,
       },
       { onConflict: "id" }
     );
-
-    if (upsertError) {
-      console.error("[auth] profile upsert error", upsertError);
-      throw upsertError;
-    }
   };
 
-  const loadUserData = async (uid: string) => {
-    const [{ data: prof, error: profileError }, { data: adminRole, error: roleError }] = await Promise.all([
+  const loadProfile = async (uid: string) => {
+    const [{ data: prof }, { data: role }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle(),
     ]);
 
-    if (profileError) throw profileError;
-    if (roleError) throw roleError;
-
     setProfile(prof as Profile | null);
-    setIsAdmin(Boolean(adminRole));
+    setIsAdmin(!!role);
   };
 
-  const hydrateUserState = async (sess: Session | null) => {
+  const hydrate = async (sess: Session | null) => {
     setSession(sess);
-    setUser(sess?.user ?? null);
+    const u = sess?.user ?? null;
+    setUser(u);
 
-    if (!sess?.user) {
+    if (!u) {
       setProfile(null);
       setIsAdmin(false);
       setLoading(false);
@@ -170,26 +105,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
 
     try {
-      await syncProfileFromMetadata(sess.user);
-      await loadUserData(sess.user.id);
-    } catch (error) {
-      console.error("Failed to sync auth profile", error);
-      setProfile(null);
-      setIsAdmin(false);
+      await syncProfile(u);
+
+      // 🔥 IMPORTANT: odśwież po upsert (fix “Anonim”)
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", u.id)
+        .maybeSingle();
+
+      setProfile(data as Profile);
+
+      const { data: role } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", u.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      setIsAdmin(!!role);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setTimeout(() => {
-        void hydrateUserState(sess);
-      }, 0);
+    supabase.auth.getSession().then(({ data }) => {
+      void hydrate(data.session);
     });
 
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      void hydrateUserState(sess);
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
+      void hydrate(sess);
     });
 
     return () => sub.subscription.unsubscribe();
@@ -199,17 +147,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signInWithOAuth({
       provider: "discord",
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: window.location.origin,
       },
     });
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
-  };
-
-  const refreshProfile = async () => {
-    if (user) await loadUserData(user.id);
   };
 
   return (
@@ -222,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signInWithDiscord,
         signOut,
-        refreshProfile,
+        refreshProfile: async () => {},
       }}
     >
       {children}
