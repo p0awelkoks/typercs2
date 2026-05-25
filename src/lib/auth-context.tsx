@@ -180,7 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signInWithDiscord,
         signOut,
-        refreshProfile: async () => {},
+        refreshProfile: async () => {
+          if (user) await loadProfile(user.id);
+        },
       }}
     >
       {children}
