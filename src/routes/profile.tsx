@@ -34,7 +34,8 @@ type BetRow = {
 };
 
 function ProfilePage() {
-  const { user, profile, loading, refreshProfile } = useAuth();
+  const { user, profile: ctxProfile, loading, refreshProfile } = useAuth();
+  const [profile, setProfile] = useState(ctxProfile);
   const [bets, setBets] = useState<BetRow[]>([]);
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState("");
@@ -45,6 +46,23 @@ function ProfilePage() {
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [user, loading, navigate]);
+
+  // Pobierz profil bezpośrednio z DB (źródło prawdy), nie polegaj wyłącznie na AuthContext
+  useEffect(() => {
+    if (loading || !user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!cancelled && data) setProfile(data as any);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, loading, ctxProfile]);
 
   useEffect(() => {
     if (profile) {
@@ -74,7 +92,12 @@ function ProfilePage() {
       .eq("id", user.id);
     setSaving(false);
     if (error) toast.error(error.message);
-    else { toast.success("Zapisano"); await refreshProfile(); setEditing(false); }
+    else {
+      toast.success("Zapisano");
+      setProfile((p) => (p ? { ...p, username: username.trim(), avatar_url: avatarUrl || null } : p));
+      await refreshProfile();
+      setEditing(false);
+    }
   };
 
   if (!profile) return <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">Ładowanie...</div>;

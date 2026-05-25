@@ -66,15 +66,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const syncProfile = async (u: User) => {
-    const username = getUsername(u);
+    const metaUsername = getUsername(u);
     const avatar_url = getAvatar(u);
+    const fallback = fallbackUsername(u.id);
+
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .eq("id", u.id)
+      .maybeSingle();
+
+    const keepExisting =
+      existing?.username &&
+      existing.username.trim() !== "" &&
+      existing.username !== fallback;
+
+    const username = keepExisting ? existing!.username! : metaUsername;
 
     await supabase.from("profiles").upsert(
       {
         id: u.id,
         username,
         avatar_url,
-        onboarded: true,
+        onboarded: !!username,
       },
       { onConflict: "id" }
     );
@@ -166,7 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signInWithDiscord,
         signOut,
-        refreshProfile: async () => {},
+        refreshProfile: async () => {
+          if (user) await loadProfile(user.id);
+        },
       }}
     >
       {children}
